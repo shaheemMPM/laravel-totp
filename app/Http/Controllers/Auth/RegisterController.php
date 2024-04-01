@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Foundation\Auth\RegistersUsers;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
@@ -21,7 +22,9 @@ class RegisterController extends Controller
     |
     */
 
-    use RegistersUsers;
+    use RegistersUsers {
+        register as registration;
+    }
 
     /**
      * Where to redirect users after registration.
@@ -67,6 +70,57 @@ class RegisterController extends Controller
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
+            'google2fa_secret' => $data['google2fa_secret'],
         ]);
+    }
+
+    /**
+     * Handle a registration request for the application.
+     *
+     * This method validates the request data, generates a Google 2FA secret key for the user,
+     * stores the registration data in the session, generates a QR code image for Google 2FA,
+     * and returns a view with the QR code image and the secret key.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function register(Request $request)
+    {
+        $this->validator($request->all())->validate();
+
+        $google2fa = app('pragmarx.google2fa');
+
+        $registration_data = $request->all();
+
+        $registration_data['google2fa_secret'] = $google2fa->generateSecretKey();
+
+        $request->session()->put('registration_data', $registration_data);
+
+        $QR_Image = $google2fa->getQRCodeInline(
+            config('app.name'),
+            $registration_data['email'],
+            $registration_data['google2fa_secret']
+        );
+
+        return view('google2fa.register', [
+            'QR_Image' => $QR_Image,
+            'secret' => $registration_data['google2fa_secret'],
+        ]);
+    }
+    
+    /**
+     * Complete the registration process for the application.
+     *
+     * This method merges the registration data stored in the session with the current request data,
+     * and then calls the `registration` method to handle the actual registration process.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function completeRegistration(Request $request)
+    {
+        $request->merge(session('registration_data'));
+
+        return $this->registration($request);
     }
 }

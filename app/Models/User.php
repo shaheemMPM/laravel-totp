@@ -3,6 +3,8 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -20,6 +22,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'google2fa_secret'
     ];
 
     /**
@@ -43,5 +46,22 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Get the Google 2FA secret attribute.
+     *
+     * This method returns an Attribute object that handles the encryption and decryption of the Google 2FA secret.
+     * The 'get' property of the Attribute object is a closure that decrypts the value.
+     * The 'set' property of the Attribute object is a closure that encrypts the value.
+     *
+     * @return Attribute The Attribute object with 'get' and 'set' properties for handling the Google 2FA secret.
+     */
+    protected function google2faSecret(): Attribute
+    {
+        return new Attribute(
+            get: fn ($value) => decrypt($value),
+            set: fn ($value) => encrypt($value)
+        );
     }
 }
